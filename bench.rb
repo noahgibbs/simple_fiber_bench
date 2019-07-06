@@ -2,6 +2,8 @@
 
 require "fiber"
 
+OUTER_ITERS = 10_000
+
 KNOWN_POINTS = [
   {
     r: 0.6834035815381081,
@@ -83,26 +85,35 @@ def mandel_fiber(c, radius)
   end
 end
 
-KNOWN_POINTS.each_with_index do |point, i|
-  STDERR.puts "Point: #{point.inspect}"
-  test_z = Complex.rect point[:r], point[:i]
+t0 = Time.now
+OUTER_ITERS.times do
+  KNOWN_POINTS.each_with_index do |point, i|
+    test_z = Complex.rect point[:r], point[:i]
 
-  f = mandel_fiber(test_z, 2.0)
-  puts "Point: #{test_z.inspect}"
+    f = mandel_fiber(test_z, 2.0)
+    #puts "Point: #{test_z.inspect}"
 
-  iter, diverge = 0, false
+    iter, diverge = 0, false
 
-  loop do
-    z, iter, diverge = f.resume
-    break if diverge
-    break if iter >= 80
+    loop do
+      z, iter, diverge = f.resume
+      break if diverge
+      break if iter >= 80
+    end
+
+    #puts "  -> Point #{diverge ? "diverges" : "does not diverge"} after #{iter} iterations"
+
+    if [iter, diverge] != [point[:iter], point[:diverge]]
+      raise "Point #{i.inspect} fails! #{iter.inspect}, #{diverge.inspect} != (known) #{point[:iter].inspect}, #{point[:diverge].inspect}"
+    end
+
+    #puts "\n\n"
   end
-
-  puts "  -> Point #{diverge ? "diverges" : "does not diverge"} after #{iter} iterations"
-
-  if [iter, diverge] != [point[:iter], point[:diverge]]
-    raise "Point #{i.inspect} fails! #{iter.inspect}, #{diverge.inspect} != (known) #{point[:iter].inspect}, #{point[:diverge].inspect}"
-  end
-
-  puts "\n\n"
 end
+
+tfinal = Time.now
+total = tfinal - t0
+elapsed = total.to_f
+per_loop = elapsed / OUTER_ITERS
+
+STDERR.puts "Per loop: #{per_loop.inspect}"
